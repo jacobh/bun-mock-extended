@@ -1,7 +1,7 @@
 
 export type MatcherFn<T> = (actualValue: T) => boolean;
 
-export interface MatcherLike<T> {
+export interface MatcherLike<_T> {
     asymmetricMatch(other: unknown): boolean;
     toString(): string;
     getExpectedType?(): string;

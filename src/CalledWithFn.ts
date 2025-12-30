@@ -64,7 +64,7 @@ const checkCalledWith = <T extends FunctionLike>(
 
 export const calledWithFn = <T extends FunctionLike>({
     fallbackMockImplementation,
-}: { fallbackMockImplementation?: T } = {}): CalledWithMock<T> => {
+}: { fallbackMockImplementation?: T | undefined } = {}): CalledWithMock<T> => {
     const fn = jest.fn(fallbackMockImplementation);
     let calledWithStack: CalledWithStackItem<T>[] = [];
 
