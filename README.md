@@ -1,33 +1,25 @@
-# jest-mock-extended
-> Type safe mocking extensions for Jest 🃏
+# bun-mock-extended
+> Type safe mocking extensions for Bun's test runner
 
-[![Build Status](https://travis-ci.com/marchaos/jest-mock-extended.svg?branch=master)](https://travis-ci.com/marchaos/jest-mock-extended)
-[![Coverage Status](https://coveralls.io/repos/github/marchaos/jest-mock-extended/badge.svg?branch=master)](https://coveralls.io/github/marchaos/jest-mock-extended?branch=master)
-[![npm version](https://badge.fury.io/js/jest-mock-extended.svg)](https://badge.fury.io/js/jest-mock-extended)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![npm downloads](https://badgen.net/npm/dw/jest-mock-extended)](https://badge.fury.io/js/jest-mock-extended)
+*Forked from [jest-mock-extended](https://github.com/marchaos/jest-mock-extended)*
 
 ## Features
 - Provides complete Typescript type safety for interfaces, argument types and return types
 - Ability to mock any interface or object
 - calledWith() extension to provide argument specific expectations, which works for objects and functions.
-- Extensive Matcher API compatible with Jasmine matchers
+- Extensive Matcher API for use with `calledWith()`
 - Supports mocking deep objects / class instances.
-- Familiar Jest like API
 
 ## Installation
 ```bash
-npm install jest-mock-extended --save-dev
-```
-or
-```bash
-yarn add jest-mock-extended --dev
+bun add bun-mock-extended --dev
 ```
 
 ## Example
 
 ```ts
-import { mock } from 'jest-mock-extended';
+import { mock } from 'bun-mock-extended';
+import { describe, test, expect } from 'bun:test';
 
 interface PartyProvider {
    getPartyType: () => string;
@@ -37,41 +29,41 @@ interface PartyProvider {
 
 describe('Party Tests', () => {
    test('Mock out an interface', () => {
-       const mock = mock<PartyProvider>();
-       mock.start('disco party');
-       
-       expect(mock.start).toHaveBeenCalledWith('disco party');
+       const mockProvider = mock<PartyProvider>();
+       mockProvider.start('disco party');
+
+       expect(mockProvider.start).toHaveBeenCalledWith('disco party');
    });
-   
-   
+
    test('mock out a return type', () => {
-       const mock = mock<PartyProvider>();
-       mock.getPartyType.mockReturnValue('west coast party');
-       
-       expect(mock.getPartyType()).toBe('west coast party');
+       const mockProvider = mock<PartyProvider>();
+       mockProvider.getPartyType.mockReturnValue('west coast party');
+
+       expect(mockProvider.getPartyType()).toBe('west coast party');
    });
 
-    test('throwing an error if we forget to specify the return value')
-        const mock = mock<PartyProvider>(
-            {},
-            {
-                fallbackMockImplementation: () => {
-                    throw new Error('not mocked');
-                },
-            }
-        );
+   test('throwing an error if we forget to specify the return value', () => {
+       const mockProvider = mock<PartyProvider>(
+           {},
+           {
+               fallbackMockImplementation: () => {
+                   throw new Error('not mocked');
+               },
+           }
+       );
 
-        expect(() => mock.getPartyType()).toThrowError('not mocked');
-    });
+       expect(() => mockProvider.getPartyType()).toThrowError('not mocked');
+   });
+});
 ```
 
 ## Assigning Mocks with a Type
 
 If you wish to assign a mock to a variable that requires a type in your test, then you should use the MockProxy<> type
-given that this will provide the apis for calledWith() and other built-in jest types for providing test functionality.
+given that this will provide the apis for calledWith() and other built-in types for providing test functionality.
 
 ```ts
-import { MockProxy, mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'bun-mock-extended';
 
 describe('test', () => {
     let myMock: MockProxy<MyInterface>;
@@ -80,17 +72,16 @@ describe('test', () => {
         myMock = mock<MyInterface>();
     })
 
-    test(() => {
+    test('example', () => {
          myMock.calledWith(1).mockReturnValue(2);
-         ...
+         // ...
     })
 });
-
 ```
 
 ## calledWith() Extension
 
-```jest-mock-extended``` allows for invocation matching expectations. Types of arguments, even when using matchers are type checked.
+`bun-mock-extended` allows for invocation matching expectations. Types of arguments, even when using matchers are type checked.
 
 ```ts
 const provider = mock<PartyProvider>();
@@ -100,52 +91,52 @@ expect(provider.getSongs('disco party')).toEqual(['Dance the night away', 'Stayi
 // Matchers
 provider.getSongs.calledWith(any()).mockReturnValue(['Saw her standing there']);
 provider.getSongs.calledWith(anyString()).mockReturnValue(['Saw her standing there']);
-
 ```
-You can also use ```mockFn()``` to create a ```jest.fn()``` with the calledWith extension:
+
+You can also use `mockFn()` to create a mock function with the calledWith extension:
 
 ```ts
- type MyFn = (x: number, y: number) => Promise<string>;
- const fn = mockFn<MyFn>();
- fn.calledWith(1, 2).mockReturnValue('str');
+type MyFn = (x: number, y: number) => Promise<string>;
+const fn = mockFn<MyFn>();
+fn.calledWith(1, 2).mockReturnValue('str');
 ```
 
 ## Clearing / Resetting Mocks
 
-```jest-mock-extended``` exposes a mockClear and mockReset for resetting or clearing mocks with the same 
-functionality as ```jest.fn()```.
+`bun-mock-extended` exposes a mockClear and mockReset for resetting or clearing mocks.
 
 ```ts
-import { mock, mockClear, mockReset } from 'jest-mock-extended';
+import { mock, mockClear, mockReset } from 'bun-mock-extended';
 
 describe('test', () => {
-   const mock: UserService = mock<UserService>();
-   
+   const mockService = mock<UserService>();
+
    beforeEach(() => {
-      mockReset(mock); // or mockClear(mock)
+      mockReset(mockService); // or mockClear(mockService)
    });
-   ...
+   // ...
 })
 ```
 
 ## Deep mocks
 
-If your class has objects returns from methods that you would also like to mock, you can use ```mockDeep``` in 
+If your class has objects returned from methods that you would also like to mock, you can use `mockDeep` in
 replacement for mock.
 
 ```ts
-import { mockDeep } from 'jest-mock-extended';
+import { mockDeep, DeepMockProxy } from 'bun-mock-extended';
 
 const mockObj: DeepMockProxy<Test1> = mockDeep<Test1>();
 mockObj.deepProp.getNumber.calledWith(1).mockReturnValue(4);
 expect(mockObj.deepProp.getNumber(1)).toBe(4);
 ```
-if you also need support for properties on functions, you can pass in an option to enable this
+
+If you also need support for properties on functions, you can pass in an option to enable this:
 
 ```ts
-import { mockDeep } from 'jest-mock-extended';
+import { mockDeep } from 'bun-mock-extended';
 
-const mockObj: DeepMockProxy<Test1> = mockDeep<Test1>({ funcPropSupport: true });
+const mockObj = mockDeep<Test1>({ funcPropSupport: true });
 mockObj.deepProp.calledWith(1).mockReturnValue(3)
 mockObj.deepProp.getNumber.calledWith(1).mockReturnValue(4);
 
@@ -153,10 +144,11 @@ expect(mockObj.deepProp(1)).toBe(3);
 expect(mockObj.deepProp.getNumber(1)).toBe(4);
 ```
 
-Can can provide a fallback mock implementation used if you do not define a return value using `calledWith`.
+You can provide a fallback mock implementation used if you do not define a return value using `calledWith`:
 
 ```ts
-import { mockDeep } from 'jest-mock-extended';
+import { mockDeep } from 'bun-mock-extended';
+
 const mockObj = mockDeep<Test1>({
     fallbackMockImplementation: () => {
         throw new Error('please add expected return value using calledWith');
@@ -165,9 +157,7 @@ const mockObj = mockDeep<Test1>({
 expect(() => mockObj.getNumber()).toThrowError('not mocked');
 ```
 
-
 ## Available Matchers
-
 
 | Matcher               | Description                                                           |
 |-----------------------|-----------------------------------------------------------------------|
@@ -181,21 +171,23 @@ expect(() => mockObj.getNumber()).toThrowError('not mocked');
 |anyMap()               | Matches any Map                                                       |
 |anySet()               | Matches any Set                                                       |
 |isA(class)             | e.g isA(DiscoPartyProvider)                                           |
-|includes('value')      | Checks if value is in the argument array                              |
-|containsKey('key')     |  Checks if the key exists in the object                               |
-|containsValue('value') | Checks if the value exists in an object                               |
-|has('value')           | checks if the value exists in a Set                                   |
+|arrayIncludes('value') | Checks if value is in the argument array                              |
+|objectContainsKey('key')|  Checks if the key exists in the object                              |
+|objectContainsValue('value')| Checks if the value exists in an object                          |
+|setHas('value')        | Checks if the value exists in a Set                                   |
+|mapHas('key')          | Checks if the key exists in a Map                                     |
 |notNull()              | value !== null                                                        |
 |notUndefined()         | value !== undefined                                                   |
 |notEmpty()             | value !== undefined && value !== null && value !== ''                 |
 |captor()               | Used to capture an arg - alternative to mock.calls[0][0]              |
+|matches(fn)            | Custom matcher function                                               |
 
 ## Writing a Custom Matcher
 
-Custom matchers can be written using a ```MatcherCreator```
+Custom matchers can be written using a `MatcherCreator`:
 
 ```ts
-import { MatcherCreator, Matcher } from 'jest-mock-extended';
+import { MatcherCreator, Matcher } from 'bun-mock-extended';
 
 // expectedValue is optional
 export const myMatcher: MatcherCreator<MyType> = (expectedValue) => new Matcher((actualValue) => {
@@ -203,14 +195,46 @@ export const myMatcher: MatcherCreator<MyType> = (expectedValue) => new Matcher(
 });
 ```
 
-By default, the expected value and actual value are the same type. In the case where you need to type the expected value 
-differently than the actual value, you can use the optional 2 generic parameter:
+By default, the expected value and actual value are the same type. In the case where you need to type the expected value
+differently than the actual value, you can use the optional 2nd generic parameter:
 
 ```ts
-import { MatcherCreator, Matcher } from 'jest-mock-extended';
+import { MatcherCreator, Matcher } from 'bun-mock-extended';
 
-// expectedValue is optional
 export const myMatcher: MatcherCreator<string[], string> = (expectedValue) => new Matcher((actualValue) => {
     return (actualValue.includes(expectedValue));
 });
 ```
+
+## Known Limitations
+
+Due to differences between Bun's test runner and Jest, some features have limitations:
+
+### Library matchers with `toHaveBeenCalledWith`
+
+The library's custom matchers (`anyNumber()`, `any()`, `captor()`, etc.) work with `calledWith()` but **do not work** with Bun's `toHaveBeenCalledWith()` assertion.
+
+```ts
+// Works
+mock.method.calledWith(anyNumber()).mockReturnValue(42);
+
+// Does NOT work - use Bun's built-in matchers instead
+expect(mock.method).toHaveBeenCalledWith(anyNumber()); // Use expect.any(Number) instead
+```
+
+For assertions, use Bun's built-in matchers:
+- `expect.anything()` instead of `any()`
+- `expect.any(Number)` instead of `anyNumber()`
+- `expect.any(String)` instead of `anyString()`
+
+### Deep mock assertions
+
+When using `mockDeep`, the `toHaveBeenCalledTimes()` assertion may not work on deeply nested mock functions. The mocking functionality itself works correctly.
+
+### mockClear/mockReset on deep mocks
+
+The `mockClear()` and `mockReset()` helpers may not fully clear deep mock state due to Bun's stricter mock instance checks.
+
+## License
+
+MIT

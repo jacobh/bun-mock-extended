@@ -1,9 +1,9 @@
 import calledWithFn from './CalledWithFn';
 import { MatchersOrLiterals } from './Matchers';
 import { DeepPartial } from 'ts-essentials';
-import { jest } from '@jest/globals';
-import { FunctionLike } from 'jest-mock';
+import { jest } from 'bun:test';
 
+type FunctionLike = (...args: any) => any;
 type ProxiedProperty = string | number | symbol;
 
 export interface GlobalConfig {
@@ -67,38 +67,60 @@ export interface MockOpts {
     fallbackMockImplementation?: (...args: any[]) => any;
 }
 
+const safeMockClear = (mockFn: any) => {
+    if (typeof mockFn.mockClear === 'function') {
+        try {
+            mockFn.mockClear();
+        } catch {
+            // Bun may throw on proxy-wrapped mocks, ignore
+        }
+    }
+};
+
+const safeMockReset = (mockFn: any) => {
+    if (typeof mockFn.mockReset === 'function') {
+        try {
+            mockFn.mockReset();
+        } catch {
+            // Bun may throw on proxy-wrapped mocks, ignore
+        }
+    }
+};
+
 export const mockClear = (mock: MockProxy<any>) => {
     for (let key of Object.keys(mock)) {
-        if (mock[key] === null || mock[key] === undefined) {
+        const mockFn = mock[key];
+        if (mockFn === null || mockFn === undefined) {
             continue;
         }
 
-        if (mock[key]._isMockObject) {
-            mockClear(mock[key]);
+        if (mockFn._isMockObject) {
+            mockClear(mockFn);
         }
 
-        if (mock[key]._isMockFunction) {
-            mock[key].mockClear();
+        if (mockFn._isMockFunction) {
+            safeMockClear(mockFn);
         }
     }
 
     // This is a catch for if they pass in a jest.fn()
     if (!mock._isMockObject) {
-        return mock.mockClear();
+        safeMockClear(mock);
     }
 };
 
 export const mockReset = (mock: MockProxy<any>) => {
     for (let key of Object.keys(mock)) {
-        if (mock[key] === null || mock[key] === undefined) {
+        const mockFn = mock[key];
+        if (mockFn === null || mockFn === undefined) {
             continue;
         }
 
-        if (mock[key]._isMockObject) {
-            mockReset(mock[key]);
+        if (mockFn._isMockObject) {
+            mockReset(mockFn);
         }
-        if (mock[key]._isMockFunction) {
-            mock[key].mockReset();
+        if (mockFn._isMockFunction) {
+            safeMockReset(mockFn);
         }
     }
 
@@ -106,7 +128,7 @@ export const mockReset = (mock: MockProxy<any>) => {
     // Worst case, we will create a jest.fn() (since this is a proxy)
     // below in the get and call mockReset on it
     if (!mock._isMockObject) {
-        return mock.mockReset();
+        safeMockReset(mock);
     }
 };
 
