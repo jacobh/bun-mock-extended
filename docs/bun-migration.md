@@ -7,9 +7,11 @@ This document describes the migration of `jest-mock-extended` to `bun-mock-exten
 | Metric | Count |
 |--------|-------|
 | Total tests | 161 |
-| Passing | 147 (91%) |
-| Skipped (known limitations) | 14 (9%) |
+| Passing | 151 (94%) |
+| Skipped (Bun limitations we can't intercept) | 10 (6%) |
 | Failing | 0 |
+
+**Note:** Incompatible patterns now throw helpful errors instead of silently failing.
 
 ## What Works
 
@@ -69,26 +71,21 @@ expect(fn).toHaveBeenCalledWith(expect.any(Number)); // Works
 - `Matchers > captor > stores all values`
 - `Matchers > matches function > expects passes for when it returns true`
 
-### 2. `calledWith()` with `expect.anything()` (2 tests skipped)
+### 2. `calledWith()` with `expect.anything()` - NOW THROWS ERROR
 
-**Issue:** Using Bun's `expect.anything()` inside `calledWith()` doesn't work.
+**Issue:** Bun's `expect.anything()` and similar matchers don't work with `calledWith()`.
 
-**Symptoms:**
+**Behavior:** The library now **throws a helpful error** when you try to use Bun's built-in matchers:
 ```ts
 mock.method.calledWith(expect.anything(), expect.anything()).mockReturnValue(3);
-mock.method(1, 2); // Returns undefined instead of 3
+// THROWS: "calledWith() does not support Bun's built-in matchers like expect.anything() or expect.any().
+//          Use the library's matchers instead: any(), anyNumber(), anyString(), etc."
 ```
 
-**Root Cause:** The library's `isJestAsymmetricMatcher()` check works, but Bun's `expect.anything()` may have a different internal structure that prevents proper matching.
-
-**Workaround:** Use library matchers instead:
+**Solution:** Use library matchers instead:
 ```ts
 mock.method.calledWith(any(), any()).mockReturnValue(3); // Works
 ```
-
-**Affected tests:**
-- `calledWith > Support jest matcher`
-- `calledWith > Suport mix Matchers with literals and with jest matcher`
 
 ### 3. Mock Detection on Deep Mocks (4 tests skipped)
 
@@ -114,30 +111,27 @@ expect(mockObj.deepProp.getNumber.mock.calls.length).toBe(1); // Works
 - `Deep mock support for class variables... > deep expectation work as expected`
 - `Deep mock support for class variables... > base function expectation work as expected`
 
-### 4. mockClear/mockReset on Deep Mocks (2 tests skipped)
+### 4. mockClear/mockReset on Deep Mocks - NOW THROWS ERROR
 
-**Issue:** Calling `mockClear()` or `mockReset()` on deep mocks silently fails to clear state.
+**Issue:** Bun's mock methods have strict `this` binding that rejects proxy-wrapped mocks.
 
-**Symptoms:**
+**Behavior:** The library now **throws a helpful error** when you try to clear/reset deep mocks:
 ```ts
 const mockObj = mockDeep<Test1>();
 mockObj.deepProp.getNumber(1);
 mockClear(mockObj);
-expect(mockObj.deepProp.getNumber.mock.calls.length).toBe(0); // FAILS - still 1
+// THROWS: "mockClear() does not work on deep mocks in Bun.
+//          Create a fresh mock instead of clearing: mockObj = mockDeep<T>()"
 ```
 
-**Root Cause:** Bun's mock methods (`mockClear()`, `mockReset()`) throw "Expected this to be instanceof Mock" when called on proxy-wrapped functions. The library catches these errors silently to prevent crashes, but the state isn't cleared.
+**Root Cause:** Bun's mock methods (`mockClear()`, `mockReset()`) throw "Expected this to be instanceof Mock" when called on proxy-wrapped functions.
 
-**Workaround:** For deep mocks, create a fresh mock instead of clearing:
+**Solution:** Create a fresh mock instead of clearing:
 ```ts
 let mockObj = mockDeep<Test1>();
 // In beforeEach:
 mockObj = mockDeep<Test1>(); // Create fresh mock
 ```
-
-**Affected tests:**
-- `clearing / resetting > mockReset deep`
-- `clearing / resetting > mockClear deep`
 
 ## Code Changes Made
 
@@ -153,16 +147,32 @@ import { jest } from 'bun:test';
 type FunctionLike = (...args: any) => any;
 ```
 
-### Mock Clear/Reset Safety Wrapper
-Added try-catch wrappers to prevent crashes on proxy-wrapped mocks:
+### Error Detection for Incompatible Patterns
+
+Added detection and helpful errors for patterns that don't work in Bun:
+
+**Bun matcher detection in `calledWith()`:**
 ```ts
-const safeMockClear = (mockFn: any) => {
-    if (typeof mockFn.mockClear === 'function') {
-        try {
-            mockFn.mockClear();
-        } catch {
-            // Bun may throw on proxy-wrapped mocks, ignore
+function isBunBuiltInMatcher(obj: any): boolean {
+    const proto = Object.getPrototypeOf(obj);
+    const tag = proto?.[Symbol.toStringTag] || '';
+    return typeof tag === 'string' && tag.startsWith('Expect');
+}
+```
+
+**Mock clear/reset error handling:**
+```ts
+const safeMockClear = (mockFn: any, isDeepMock: boolean) => {
+    try {
+        mockFn.mockClear();
+    } catch (e: any) {
+        if (isDeepMock && e?.message?.includes('instanceof Mock')) {
+            throw new Error(
+                `mockClear() does not work on deep mocks in Bun. ` +
+                `Create a fresh mock instead: mockObj = mockDeep<T>()`
+            );
         }
+        throw e;
     }
 };
 ```

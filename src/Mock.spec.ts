@@ -256,23 +256,22 @@ describe('jest-mock-extended', () => {
             expect(mockObj.getSomethingWithArgs(1, 2)).toBe(3);
         });
 
-        test.skip('Support jest matcher', () => {
+        test('throws error when using Bun expect.anything() matcher', () => {
             const mockObj = mock<MockInt>();
-            mockObj.getSomethingWithArgs
-                .calledWith(expect.anything(), expect.anything())
-                .mockReturnValue(3);
-
-            expect(mockObj.getSomethingWithArgs(1, 2)).toBe(3);
+            expect(() => {
+                mockObj.getSomethingWithArgs
+                    .calledWith(expect.anything(), expect.anything())
+                    .mockReturnValue(3);
+            }).toThrow(/calledWith\(\) does not support Bun's built-in matchers/);
         });
 
-        test.skip('Suport mix Matchers with literals and with jest matcher', () => {
+        test('throws error when mixing library matchers with Bun matchers', () => {
             const mockObj = mock<MockInt>();
-            mockObj.getSomethingWithMoreArgs
-                .calledWith(anyNumber(), expect.anything(), 3)
-                .mockReturnValue(4);
-
-            expect(mockObj.getSomethingWithMoreArgs(1, 2, 3)).toBe(4);
-            expect(mockObj.getSomethingWithMoreArgs(1, 2, 4)).toBeUndefined;
+            expect(() => {
+                mockObj.getSomethingWithMoreArgs
+                    .calledWith(anyNumber(), expect.anything(), 3)
+                    .mockReturnValue(4);
+            }).toThrow(/calledWith\(\) does not support Bun's built-in matchers/);
         });
 
         test('Can use calledWith with an other mock', () => {
@@ -543,23 +542,19 @@ describe('jest-mock-extended', () => {
             expect(mockObj.getSomethingWithArgs(1, 2)).toBe(3);
         });
 
-        test.skip('mockReset deep', () => {
+        test('mockReset deep throws helpful error', () => {
             const mockObj = mockDeep<Test1>();
             mockObj.deepProp.getNumber.calledWith(1).mockReturnValue(4);
             expect(mockObj.deepProp.getNumber(1)).toBe(4);
-            mockReset(mockObj);
-            expect(mockObj.deepProp.getNumber(1)).toBe(undefined);
+            expect(() => mockReset(mockObj)).toThrow(/mockReset\(\) does not work on deep mocks in Bun/);
         });
 
-        test.skip('mockClear deep', () => {
+        test('mockClear deep throws helpful error', () => {
             const mockObj = mockDeep<Test1>();
             mockObj.deepProp.getNumber.calledWith(1).mockReturnValue(4);
             expect(mockObj.deepProp.getNumber(1)).toBe(4);
             expect(mockObj.deepProp.getNumber.mock.calls.length).toBe(1);
-            mockClear(mockObj);
-            expect(mockObj.deepProp.getNumber.mock.calls.length).toBe(0);
-            // Does not clear mock implementations of calledWith
-            expect(mockObj.deepProp.getNumber(1)).toBe(4);
+            expect(() => mockClear(mockObj)).toThrow(/mockClear\(\) does not work on deep mocks in Bun/);
         });
 
         test('mockReset ignores undefined properties', () => {

@@ -208,32 +208,54 @@ export const myMatcher: MatcherCreator<string[], string> = (expectedValue) => ne
 
 ## Known Limitations
 
-Due to differences between Bun's test runner and Jest, some features have limitations:
+Due to differences between Bun's test runner and Jest, some patterns throw helpful errors or don't work:
 
-### Library matchers with `toHaveBeenCalledWith`
+### Bun's matchers with `calledWith()` - THROWS ERROR
 
-The library's custom matchers (`anyNumber()`, `any()`, `captor()`, etc.) work with `calledWith()` but **do not work** with Bun's `toHaveBeenCalledWith()` assertion.
+Using Bun's built-in matchers (`expect.anything()`, `expect.any()`) with `calledWith()` will throw an error:
 
 ```ts
-// Works
-mock.method.calledWith(anyNumber()).mockReturnValue(42);
+// THROWS ERROR - Bun's matchers don't work with calledWith()
+mock.method.calledWith(expect.anything()).mockReturnValue(42);
 
-// Does NOT work - use Bun's built-in matchers instead
-expect(mock.method).toHaveBeenCalledWith(anyNumber()); // Use expect.any(Number) instead
+// Use library matchers instead
+mock.method.calledWith(any()).mockReturnValue(42); // Works!
 ```
 
-For assertions, use Bun's built-in matchers:
-- `expect.anything()` instead of `any()`
-- `expect.any(Number)` instead of `anyNumber()`
-- `expect.any(String)` instead of `anyString()`
+### Library matchers with `toHaveBeenCalledWith` - SILENT FAILURE
 
-### Deep mock assertions
+The library's matchers don't work with Bun's assertions (we can't intercept this):
 
-When using `mockDeep`, the `toHaveBeenCalledTimes()` assertion may not work on deeply nested mock functions. The mocking functionality itself works correctly.
+```ts
+// Does NOT work - Bun doesn't recognize library matchers
+expect(mock.method).toHaveBeenCalledWith(anyNumber());
 
-### mockClear/mockReset on deep mocks
+// Use Bun's built-in matchers for assertions
+expect(mock.method).toHaveBeenCalledWith(expect.any(Number)); // Works!
+```
 
-The `mockClear()` and `mockReset()` helpers may not fully clear deep mock state due to Bun's stricter mock instance checks.
+### mockClear/mockReset on deep mocks - THROWS ERROR
+
+Calling `mockClear()` or `mockReset()` on deep mocks will throw an error:
+
+```ts
+const mockObj = mockDeep<MyType>();
+mockClear(mockObj); // THROWS ERROR
+
+// Create a fresh mock instead
+mockObj = mockDeep<MyType>(); // Works!
+```
+
+### Deep mock assertions - THROWS ERROR (from Bun)
+
+Bun's `toHaveBeenCalledTimes()` doesn't recognize deep mock proxies:
+
+```ts
+expect(mockObj.nested.method).toHaveBeenCalledTimes(1); // Bun throws error
+
+// Use .mock.calls instead
+expect(mockObj.nested.method.mock.calls.length).toBe(1); // Works!
+```
 
 ## License
 

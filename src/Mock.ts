@@ -67,27 +67,39 @@ export interface MockOpts {
     fallbackMockImplementation?: (...args: any[]) => any;
 }
 
-const safeMockClear = (mockFn: any) => {
+const safeMockClear = (mockFn: any, isDeepMock: boolean = false) => {
     if (typeof mockFn.mockClear === 'function') {
         try {
             mockFn.mockClear();
-        } catch {
-            // Bun may throw on proxy-wrapped mocks, ignore
+        } catch (e: any) {
+            if (isDeepMock && e?.message?.includes('instanceof Mock')) {
+                throw new Error(
+                    `mockClear() does not work on deep mocks in Bun. ` +
+                    `Create a fresh mock instead of clearing: mockObj = mockDeep<T>()`
+                );
+            }
+            throw e;
         }
     }
 };
 
-const safeMockReset = (mockFn: any) => {
+const safeMockReset = (mockFn: any, isDeepMock: boolean = false) => {
     if (typeof mockFn.mockReset === 'function') {
         try {
             mockFn.mockReset();
-        } catch {
-            // Bun may throw on proxy-wrapped mocks, ignore
+        } catch (e: any) {
+            if (isDeepMock && e?.message?.includes('instanceof Mock')) {
+                throw new Error(
+                    `mockReset() does not work on deep mocks in Bun. ` +
+                    `Create a fresh mock instead of resetting: mockObj = mockDeep<T>()`
+                );
+            }
+            throw e;
         }
     }
 };
 
-export const mockClear = (mock: MockProxy<any>) => {
+export const mockClear = (mock: MockProxy<any>, _isDeepCall: boolean = false) => {
     for (let key of Object.keys(mock)) {
         const mockFn = mock[key];
         if (mockFn === null || mockFn === undefined) {
@@ -95,21 +107,21 @@ export const mockClear = (mock: MockProxy<any>) => {
         }
 
         if (mockFn._isMockObject) {
-            mockClear(mockFn);
+            mockClear(mockFn, true);
         }
 
         if (mockFn._isMockFunction) {
-            safeMockClear(mockFn);
+            safeMockClear(mockFn, _isDeepCall);
         }
     }
 
     // This is a catch for if they pass in a jest.fn()
     if (!mock._isMockObject) {
-        safeMockClear(mock);
+        safeMockClear(mock, false);
     }
 };
 
-export const mockReset = (mock: MockProxy<any>) => {
+export const mockReset = (mock: MockProxy<any>, _isDeepCall: boolean = false) => {
     for (let key of Object.keys(mock)) {
         const mockFn = mock[key];
         if (mockFn === null || mockFn === undefined) {
@@ -117,10 +129,10 @@ export const mockReset = (mock: MockProxy<any>) => {
         }
 
         if (mockFn._isMockObject) {
-            mockReset(mockFn);
+            mockReset(mockFn, true);
         }
         if (mockFn._isMockFunction) {
-            safeMockReset(mockFn);
+            safeMockReset(mockFn, _isDeepCall);
         }
     }
 
@@ -128,7 +140,7 @@ export const mockReset = (mock: MockProxy<any>) => {
     // Worst case, we will create a jest.fn() (since this is a proxy)
     // below in the get and call mockReset on it
     if (!mock._isMockObject) {
-        safeMockReset(mock);
+        safeMockReset(mock, false);
     }
 };
 
